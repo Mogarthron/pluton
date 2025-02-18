@@ -7,11 +7,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///pluton_db.db'
 app.secret_key = "Secret Key"
 db = SQLAlchemy(app)
 
-db.init_app(app)
-
 migrate = Migrate(app, db)
 
-from routs import *
+from routes import *
 
 
 if __name__ == "__main__":
