@@ -5,8 +5,8 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.validators import DataRequired, Length, EqualTo
 
-from qualitycontroll_flask import app
-from qualitycontroll_flask.models import *
+from app import app
+from models import *
 
 login_manager = LoginManager()
 login_manager.init_app(app=app)
@@ -68,13 +68,13 @@ class User_form(FlaskForm):
 
 
 @app.route("/add_user", methods=["POST", "GET"])
-@login_required
+# @login_required
 def add_user():
 
     form = User_form()
     if form.validate_on_submit():
         new_user = Users(
-            username=form.user_name.data,
+            user_name=form.user_name.data,
             password=form.password.data,
             role= form.role.data,
             user_number=form.user_number.data,
@@ -96,3 +96,7 @@ def add_user():
 def logout():
     logout_user()
     return render_template("index.html")
+
+@app.route("/test")
+def test():
+    return render_template("test.html")
