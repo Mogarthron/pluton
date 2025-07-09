@@ -5,6 +5,8 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.validators import DataRequired, Length, EqualTo
 
+from datetime import datetime as dt, timedelta
+
 from app import app
 from models import *
 
@@ -100,3 +102,22 @@ def logout():
 @app.route("/test")
 def test():
     return render_template("test.html")
+
+
+@app.route("/asp_module", methods=["POST", "GET"])
+def asp_module():
+
+    return render_template("asp_module.html")
+
+
+
+@app.route('/api/schedule', methods=['GET'])
+def get_schedule():
+    start_time = dt.strptime("2025-06-29 08:00", "%Y-%m-%d %H:%M")
+    # def minutes(dt): return int((dt - start_time).total_seconds() / 60)
+
+    data = {
+        "startTime": start_time.strftime("%Y-%m-%d %H:%M"),
+        "machines": []
+    }
+    return jsonify(data)

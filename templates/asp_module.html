@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>ASP - Harmonogram JSON</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .timeline-container { overflow-x: auto; border: 1px solid #ccc; }
+    .timeline-header { display: flex; min-width: 1200px; border-bottom: 2px solid #000; }
+    .time-slot { width: 60px; text-align: center; font-size: 12px; border-left: 1px solid #ddd; padding: 2px 0; }
+    .machine-row { display: flex; align-items: center; min-width: 1200px; position: relative; height: 60px; border-bottom: 1px solid #ddd; }
+    .machine-label { width: 100px; font-weight: bold; padding: 5px; border-right: 1px solid #ccc; background: #f1f1f1; }
+    .process-track { flex: 1; position: relative; height: 100%; }
+    .process-block {
+      position: absolute; top: 10px; height: 40px;
+      background-color: #0d6efd; color: #fff;
+      padding: 5px; font-size: 12px; border-radius: 5px;
+      cursor: grab; user-select: none;
+    }
+    .dragging { opacity: 0.5; }
+  </style>
+</head>
+<body class="container my-4">
+<div class="row mb-4"><div class="col">
+  <h5>Dodaj maszynę</h5>
+  <input id="machineName" class="form-control d-inline w-25" placeholder="Nazwa maszyny">
+  <button id="addMachineBtn" class="btn btn-success ms-2">Dodaj</button>
+</div>
+</div>
+
+<div class="row mb-4">
+<div class="col">
+  <h5>Dodaj proces</h5>
+  <select id="machineSelect" class="form-select w-25 d-inline"></select>
+  <input id="processName" class="form-control d-inline w-25 ms-2" placeholder="Nazwa procesu">
+  <input id="processStart" type="number" class="form-control d-inline w-15 ms-2" placeholder="Start (min)">
+  <input id="processDuration" type="number" class="form-control d-inline w-15 ms-2" placeholder="Czas trwania">
+  <button id="addProcessBtn" class="btn btn-primary ms-2">Dodaj</button>
+</div>
+</div>
+
+
+<div class="timeline-container">
+  <div class="timeline-date text-center fw-bold py-2" id="timeline-date" style="background: #f1f1f1;"></div>
+  <div class="timeline-header">
+    <div class="machine-label"></div>
+    <div class="d-flex flex-grow-1" id="time-header"></div>
+  </div>
+  <div id="machine-rows"></div>
+</div>
+
+<!-- Modal Konfliktu -->
+<div class="modal fade" id="conflictModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Konflikt czasowy</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Proces koliduje z:</strong> <span id="conflictWith"></span></p>
+        <p>
+          <label for="newStartInput" class="form-label">Nowy czas startu (minuty od 0):</label>
+          <input type="number" id="newStartInput" class="form-control" min="0">
+        </p>
+        <p>
+          <button id="autoSuggestBtn" class="btn btn-outline-primary btn-sm">Ustaw najbliższy wolny czas</button>
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="applyChangeBtn" class="btn btn-primary">Zastosuj</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+<script>
+  let conflictData = {};
+const pxPerMin = 1;
+
+document.addEventListener("DOMContentLoaded", () => {
+  fetch("/api/schedule")
+    .then(res => res.json())
+    .then(data => renderSchedule(data));
+});
+
+function renderSchedule(data) {
+  // Ustaw datę w nagłówku
+const dateElement = document.getElementById('timeline-date');
+const startDate = new Date(data.startTime);
+const dateString = startDate.toLocaleDateString('pl-PL', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+dateElement.innerText = dateString.charAt(0).toUpperCase() + dateString.slice(1);
+
+// Ustalamy maksymalny koniec procesu
+let maxEndMin = 0;
+data.machines.forEach(machine => {
+  machine.processes.forEach(proc => {
+    const end = proc.start + proc.duration;
+    if (end > maxEndMin) maxEndMin = end;
+  });
+});
+
+// Zaokrąglij do pełnej godziny w górę
+const startHour = startDate.getHours();
+const totalHours = Math.ceil(maxEndMin / 60);
+const endHour = startHour + totalHours;
+
+// Tworzenie osi czasu dynamicznie
+for (let h = startHour; h <= endHour; h++) {
+  const slot = document.createElement('div');
+  slot.className = 'time-slot';
+  const d = new Date(startDate);
+  d.setHours(h, 0, 0, 0);
+  slot.innerText = d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('time-header').appendChild(slot);
+}
+
+
+  // inicjalizacja selecta (może być pusta)
+  const machineSelect = document.getElementById("machineSelect");
+  data.machines.forEach(machine => {
+    const option = document.createElement("option");
+    option.value = machine.id;
+    option.text = machine.name;
+    machineSelect.appendChild(option);
+  });
+
+  enableDrag();
+}
+
+// Dodawanie maszyny
+document.getElementById("addMachineBtn").addEventListener("click", () => {
+  const name = document.getElementById("machineName").value.trim();
+  if (!name) return;
+
+  const id = Date.now();
+  const row = document.createElement("div");
+  row.className = "machine-row";
+  row.dataset.machine = id;
+
+  const label = document.createElement("div");
+  label.className = "machine-label";
+  label.innerText = name;
+
+  const track = document.createElement("div");
+  track.className = "process-track";
+  track.dataset.machine = id;
+
+  row.appendChild(label);
+  row.appendChild(track);
+  document.getElementById("machine-rows").appendChild(row);
+
+  const option = document.createElement("option");
+  option.value = id;
+  option.text = name;
+  document.getElementById("machineSelect").appendChild(option);
+
+  enableDrag();
+});
+
+// Dodawanie procesu
+document.getElementById("addProcessBtn").addEventListener("click", () => {
+  const name = document.getElementById("processName").value.trim();
+  const start = parseInt(document.getElementById("processStart").value);
+  const duration = parseInt(document.getElementById("processDuration").value);
+  const machineId = document.getElementById("machineSelect").value;
+
+  if (!name || isNaN(start) || isNaN(duration)) return;
+
+  const block = document.createElement("div");
+  block.className = "process-block";
+  block.draggable = true;
+  block.dataset.id = "p" + Date.now();
+  block.dataset.start = start;
+  block.dataset.duration = duration;
+
+  block.style.left = `${start * pxPerMin}px`;
+  block.style.width = `${duration * pxPerMin}px`;
+
+  const hStart = Math.floor(start / 60);
+  const mStart = start % 60;
+  const hEnd = Math.floor((start + duration) / 60);
+  const mEnd = (start + duration) % 60;
+
+  block.innerHTML = `${name}<br><small>${hStart}:${String(mStart).padStart(2, '0')} - ${hEnd}:${String(mEnd).padStart(2, '0')}</small>`;
+
+  const track = document.querySelector(`.process-track[data-machine="${machineId}"]`);
+  if (track) {
+    track.appendChild(block);
+    enableDrag();
+  }
+});
+
+function enableDrag() {
+  const blocks = document.querySelectorAll('.process-block');
+  let offsetX = 0;
+  let draggedBlock = null;
+
+  blocks.forEach(block => {
+    block.addEventListener('dragstart', e => {
+      offsetX = e.offsetX;
+      draggedBlock = block;
+      block.classList.add('dragging');
+    });
+
+    block.addEventListener('dragend', () => {
+      draggedBlock.classList.remove('dragging');
+      draggedBlock = null;
+    });
+  });
+
+  document.querySelectorAll('.process-track').forEach(track => {
+    track.addEventListener('dragover', e => e.preventDefault());
+
+    track.addEventListener('drop', e => {
+      if (!draggedBlock || draggedBlock.parentNode !== track) return;
+
+      const rect = track.getBoundingClientRect();
+      let newLeft = Math.max(0, Math.round(e.clientX - rect.left - offsetX));
+      const duration = parseInt(draggedBlock.dataset.duration);
+      const newStart = newLeft;
+      const newEnd = newStart + duration;
+
+      const otherBlocks = Array.from(track.querySelectorAll('.process-block')).filter(b => b !== draggedBlock);
+      let conflictingBlock = null;
+
+      const hasConflict = otherBlocks.some(block => {
+        const bStart = parseInt(block.dataset.start);
+        const bEnd = bStart + parseInt(block.dataset.duration);
+        if (!(newEnd <= bStart || newStart >= bEnd)) {
+          conflictingBlock = block;
+          return true;
+        }
+        return false;
+      });
+
+      if (hasConflict) {
+        const conflictModal = new bootstrap.Modal(document.getElementById('conflictModal'));
+        document.getElementById('conflictWith').innerText = conflictingBlock.innerText.split('\n')[0];
+        document.getElementById('newStartInput').value = newStart;
+
+        conflictData = {
+          block: draggedBlock,
+          track: track,
+          duration: duration,
+          otherBlocks: otherBlocks
+        };
+
+        conflictModal.show();
+        return;
+      }
+
+      updateBlock(draggedBlock, newStart, duration);
+    });
+  });
+}
+
+function updateBlock(block, start, duration) {
+  const end = start + duration;
+  block.style.left = `${start * pxPerMin}px`;
+  block.dataset.start = start;
+
+  const hStart = Math.floor(start / 60);
+  const mStart = start % 60;
+  const hEnd = Math.floor(end / 60);
+  const mEnd = end % 60;
+
+  block.innerHTML = `${block.innerText.split('\n')[0]}<br><small>${hStart}:${String(mStart).padStart(2, '0')} - ${hEnd}:${String(mEnd).padStart(2, '0')}</small>`;
+}
+
+document.getElementById('applyChangeBtn').addEventListener('click', () => {
+  const inputVal = parseInt(document.getElementById('newStartInput').value);
+  if (isNaN(inputVal)) return;
+
+  const start = inputVal;
+  const end = start + conflictData.duration;
+  const conflict = conflictData.otherBlocks.some(b => {
+    const s = parseInt(b.dataset.start);
+    const e = s + parseInt(b.dataset.duration);
+    return !(end <= s || start >= e);
+  });
+
+  if (!conflict) {
+    updateBlock(conflictData.block, start, conflictData.duration);
+    bootstrap.Modal.getInstance(document.getElementById('conflictModal')).hide();
+  } else {
+    alert("❌ Nadal konflikt – wybierz inny czas.");
+  }
+});
+
+document.getElementById('autoSuggestBtn').addEventListener('click', () => {
+  let t = 0;
+  const step = 1;
+  const { duration, otherBlocks } = conflictData;
+
+  while (true) {
+    const conflict = otherBlocks.some(b => {
+      const s = parseInt(b.dataset.start);
+      const e = s + parseInt(b.dataset.duration);
+      return !(t + duration <= s || t >= e);
+    });
+    if (!conflict) break;
+    t += step;
+  }
+
+  document.getElementById('newStartInput').value = t;
+});
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
