@@ -1,0 +1,14 @@
+ :root{
+      --axis-bg:#f1f1f1; --track-bg:#e9ecef; --process-bg:#0d6efd; --process-text:#fff; --progress:#20c997;
+    }
+    .timeline-container{overflow-x:auto;border:1px solid #ccc;border-radius:8px}
+    .timeline-date{background:var(--axis-bg)}
+    .timeline-header{display:flex;min-width:720px;border-bottom:2px solid #000;position:sticky;top:0;z-index:5;background:#fff}
+    .time-slot{width:60px;text-align:center;font-size:12px;border-left:1px solid #ddd;padding:4px 0;white-space:pre-line}
+    .machine-row{display:flex;align-items:center;min-width:720px;position:relative;height:68px;border-bottom:1px solid #ddd}
+    .machine-label{width:160px;font-weight:600;padding:8px;border-right:1px solid #ccc;background:#f8f9fa;flex-shrink:0}
+    .process-track{flex:1;position:relative;height:100%;background:var(--track-bg)}
+    .process-block{position:absolute;top:14px;height:40px;background:var(--process-bg);color:var(--process-text);
+      padding:6px 8px;font-size:12px;border-radius:6px;cursor:grab;user-select:none;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+    .process-block.dragging{opacity:.6}
+    .process-block .progress-fill{background:var(--progress)}
