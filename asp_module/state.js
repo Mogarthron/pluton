@@ -14,4 +14,6 @@ export const state = {
   // konflikty / edycja
   conflictData: {},
   currentEditBlock: null,
+  
+  gridStepMin: 1,
 };
