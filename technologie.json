@@ -1,0 +1,20 @@
+[{  "nr_tech": "POL00010",
+    "nazwa": "POLICZKOWE AŻUR G1 BEJCA",
+    "opis": "Komplet schodów policzkowych azurowych bukowych wykończonych lakierem wodnym, całe w jednym kolorze, policzki widoczne z obu stron",
+    "tagi": {"model":"POLICZKOWE", "material":"BUK", "rodzaj":"AZUR", "wykonczenie":"LAKIER"},
+    "marszruta": [
+        {"proc_id":10, "id_wejsciowe":[10], "obszar":"Przygotowanie", "nazwa":"przygotowanie",                "czas_teh":52},
+        {"proc_id":20, "id_wejsciowe":[10], "obszar":"Wycinanie", "nazwa":"wycinanie",                       "czas_teh":70},
+        {"proc_id":30, "id_wejsciowe":[20], "obszar":"Skladanie", "nazwa":"skladanie",                         "czas_teh":195},
+        {"proc_id":40, "id_wejsciowe":[30], "obszar":"Szlifiernia", "nazwa":"szlifowanie",                          "czas_teh":300},
+        {"proc_id":50, "id_wejsciowe":[40], "obszar":"Lakiernia", "nazwa":"podklad",                                "czas_teh":90, "dozwolone_gniazda":["automat"]},
+        {"proc_id":52, "id_wejsciowe":[50], "obszar":"Lakiernia", "nazwa":"nawierzchnia",                           "czas_teh":90, "dozwolone_gniazda":["automat"]},
+        {"proc_id":60, "id_wejsciowe":[52], "obszar":"Pakowanie", "nazwa":"pakowanie",                              "czas_teh":270, "proces_koncowy":true}
+    ]
+
+
+}
+
+
+
+]
